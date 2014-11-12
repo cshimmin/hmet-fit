@@ -94,11 +94,15 @@ Double_t DoubleCB::evaluate() const {
 }
 
 
-const float v_unc_lumi = 0.028; // 2.8%
+//const float v_unc_lumi = 0.028; // 2.8%
 
 
 TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, float v_unc_xsec_sm, float v_unc_eff)
 {
+
+  // hard coded lumi stuff
+  double v_lumi = 20.3;
+  double v_unc_lumi = 0.028;//*v_lumi;
 
   /////  SIGNAL REGION
   // the measured mass
@@ -117,11 +121,13 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   alphaCB.setConstant(true);
   nCB.setConstant(true);
 
-  RooRealVar xsec_bsm("xsec_bsm","xsec_bsm",0,0,100);
+  RooRealVar xsec_bsm("xsec_bsm","xsec_bsm",0,0,5);
   RooRealVar xsec_sm("xsec_sm","xsec_sm",0,0,100);
 
   RooRealVar eff("eff","eff",1,0.5,1.5);
-  RooRealVar lumi("lumi","lumi",1,0.5,1.5);
+  RooRealVar lumi("lumi","lumi",v_lumi,v_lumi-3*v_unc_lumi, v_lumi+3*v_unc_lumi); //KC
+  RooRealVar lumiGlobs("lumiGlobs","lumiGlobs",v_lumi,v_lumi-3*v_unc_lumi, v_lumi+3*v_unc_lumi); //KC
+  RooRealVar unc_lumi("unc_lumi","unc_lumi",v_unc_lumi,0.1,2*v_unc_lumi); //KC
 
   // bg model params
   RooRealVar nbg("nbg","nbg",0,0,1000);
@@ -169,8 +175,10 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   wspace.import(xsec_bsm);
   wspace.import(xsec_sm);
   wspace.import(eff);
-  wspace.import(lumi);
   wspace.import(nbg);
+  wspace.import(lumi);
+  wspace.import(lumiGlobs);
+  wspace.import(unc_lumi);
 
   // number of signal events
   wspace.factory("prod::nsig(lumi,eff,xsec_bsm)");  
@@ -178,13 +186,14 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   // number of SM higgs events
   wspace.factory("prod::nsm(lumi,eff,xsec_sm)");
 
+
   // the joint model: non-peaking BG + peaking BG (called "SM") and peaking signal
   wspace.factory("SUM:jointModel(nsig*G,nsm*S,nbg*E)");
   wspace.var("xsec_bsm")->setVal(v_xsec_bsm);
   wspace.var("nbg")->setVal(v_nbg);
   wspace.var("xsec_sm")->setVal(v_xsec_sm);
   wspace.var("eff")->setVal(1.0);
-  wspace.var("lumi")->setVal(1.0);
+  wspace.var("lumi")->setVal(v_lumi);
 
   // unconstrained PDF
   RooAbsPdf *pdf = wspace.pdf("jointModel");
@@ -192,13 +201,15 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   // constraint PDF
   wspace.factory("Gaussian::theoryconstraint(theoryGlobs[0,100], xsec_sm, unc_xsec_sm[0,100])");
   wspace.factory(   "Gaussian::effconstraint(effGlobs[0,5]     , eff    , unc_eff[0,1.])");
-  wspace.factory(  "Gaussian::lumiconstraint(lumiGlobs[0,5]    , lumi   , unc_lumi[0,1.])");
+  wspace.factory(  "Gaussian::lumiconstraint(lumiGlobs, lumi, unc_lumi)"); //KC: limits defined elsewhere
   wspace.var("theoryGlobs")->setVal(v_xsec_sm);
   wspace.var("effGlobs"   )->setVal(1.0);
   wspace.var("lumiGlobs"  )->setVal(1.0);
   wspace.var("unc_xsec_sm")->setVal(v_unc_xsec_sm);
   wspace.var("unc_eff"    )->setVal(v_unc_eff);
-  wspace.var("unc_lumi"   )->setVal(v_unc_lumi);
+  //  wspace.var("unc_lumi"   )->setVal(v_unc_lumi); // this was relative not absolute
+  wspace.var("unc_lumi"   )->setVal(  v_unc_lumi );
+
   wspace.var("theoryGlobs")->setConstant(); // like it's data
   wspace.var("effGlobs"   )->setConstant(); // like it's data
   wspace.var("lumiGlobs"  )->setConstant(); // like it's data
@@ -295,4 +306,8 @@ void limit_bands(float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, 
   TString fname = fit_withsm(v_nbg,bg_slope,v_xsec_bsm,v_xsec_sm,v_unc_xsec_sm,v_unc_eff);
   std::cout << "Reading WS from " << fname << std::endl;
   limit(fname);
+}
+
+void test(){
+  limit_bands(11.67,-1.0/60.176,0,1.13,0.07,0.05);
 }
