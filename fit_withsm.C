@@ -1,5 +1,6 @@
 #include "RooRealVar.h"
 #include "RooGaussian.h"
+#include "RooCBShape.h"
 #include "RooWorkspace.h"
 #include "RooPlot.h"
 #include "RooProdPdf.h"
@@ -15,9 +16,12 @@
 #include "RooCmdArg.h"
 #include "TCanvas.h"
 #include "TH1F.h"
+#include "TMath.h"
+#include "StandardHypoTestInvDemo.C"
 
 class DoubleCB : public RooAbsPdf {
 public:
+  ClassDef(DoubleCB, 1);
 	DoubleCB() {} ;
 	DoubleCB(const char* name, const char *title, RooAbsReal &_m,
 			RooAbsReal &_m0, RooAbsReal &_sigma,
@@ -39,8 +43,7 @@ private:
 	RooRealProxy nLo;
 };
 
-//ClassImp(DoubleCB)
-//;
+ClassImp(DoubleCB);
 
 DoubleCB::DoubleCB(const char* name, const char *title, RooAbsReal &_m,
 		RooAbsReal &_m0, RooAbsReal &_sigma,
@@ -91,7 +94,10 @@ Double_t DoubleCB::evaluate() const {
 }
 
 
-TString fit_withsm( float v_nbg,float bg_slope, float v_nsig, float v_nsm, float sig_nsm, float sig_eff)
+const float v_unc_lumi = 0.028; // 2.8%
+
+
+TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, float v_unc_xsec_sm, float v_unc_eff)
 {
 
   /////  SIGNAL REGION
@@ -110,10 +116,12 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_nsig, float v_nsm, float
   sh.setConstant(true);
   alphaCB.setConstant(true);
   nCB.setConstant(true);
-  RooRealVar nsig("nsig","nsig",0,0,100);
-  RooRealVar nsm("nsm","nsm",0,0,100);
+
+  RooRealVar xsec_bsm("xsec_bsm","xsec_bsm",0,0,100);
+  RooRealVar xsec_sm("xsec_sm","xsec_sm",0,0,100);
 
   RooRealVar eff("eff","eff",1,0.5,1.5);
+  RooRealVar lumi("lumi","lumi",1,0.5,1.5);
 
   // bg model params
   RooRealVar nbg("nbg","nbg",0,0,1000);
@@ -132,18 +140,23 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_nsig, float v_nsm, float
   
   // signal PDF
   //RooGaussian G("G","G",mgg,mbh,sh);
-  //RooCBShape G("G", "G", mgg, mbh, sh, alphaCB, nCB);
-  std::cout << "initializing doubleCB..." << std::endl;
+  RooCBShape G("G", "G", mgg, mbh, sh, alphaCB, nCB);
+
+  /*
+    std::cout << "initializing doubleCB..." << std::endl;
   DoubleCB G("G", "G", mgg, mbh, sh, alphaHi, nHi, alphaLo, nLo);
   std::cout << "done!." << std::endl;
   std::cout << "val = " << G.evaluate() << std::endl;
+  */
 
   // SM PDF
   //RooGaussian S("S","S",mgg,mh,sh);
-  //RooCBShape S("S", "S", mgg, mh, sh, alphaCB, nCB);
+  RooCBShape S("S", "S", mgg, mh, sh, alphaCB, nCB);
+  /*
   std::cout << "initializing doubleCB(2)..." << std::endl;
   DoubleCB S("S", "S", mgg, mh, sh, alphaHi, nHi, alphaLo, nLo);
   std::cout << "done!." << std::endl;
+  */
 
   // bg PDF
   RooExponential E("E","E",mgg,bgc);
@@ -153,37 +166,49 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_nsig, float v_nsm, float
   wspace.import(G);
   wspace.import(S);
   wspace.import(E);
-  wspace.import(nsig);
-  wspace.import(nsm);
+  wspace.import(xsec_bsm);
+  wspace.import(xsec_sm);
   wspace.import(eff);
+  wspace.import(lumi);
   wspace.import(nbg);
-  wspace.factory("prod::tempsig(eff,nsig)");
-  wspace.factory("prod::tempsm(eff,nsm)");
-  wspace.factory("SUM:jointModel(tempsig*G,tempsm*S,nbg*E)");
-  wspace.var("nsig")->setVal(v_nsig);
+
+  // number of signal events
+  wspace.factory("prod::nsig(lumi,eff,xsec_bsm)");  
+
+  // number of SM higgs events
+  wspace.factory("prod::nsm(lumi,eff,xsec_sm)");
+
+  // the joint model: non-peaking BG + peaking BG (called "SM") and peaking signal
+  wspace.factory("SUM:jointModel(nsig*G,nsm*S,nbg*E)");
+  wspace.var("xsec_bsm")->setVal(v_xsec_bsm);
   wspace.var("nbg")->setVal(v_nbg);
-  wspace.var("nsm")->setVal(v_nsm);
+  wspace.var("xsec_sm")->setVal(v_xsec_sm);
   wspace.var("eff")->setVal(1.0);
+  wspace.var("lumi")->setVal(1.0);
 
   // unconstrained PDF
   RooAbsPdf *pdf = wspace.pdf("jointModel");
 
   // constraint PDF
-  wspace.factory("Gaussian::smconstraint(nsmGlobs[0,100], nsm, sigma[0,100])");
-  wspace.factory("Gaussian::effconstraint(effGlobs[0,5], eff, sigmaeff[0,1.])");
-  wspace.var("nsmGlobs")->setVal(v_nsm);
-  wspace.var("effGlobs")->setVal(1.0);
-  wspace.var("sigma")->setVal(sig_nsm);
-  wspace.var("sigmaeff")->setVal(sig_eff);
-  wspace.var("nsmGlobs")->setConstant(); // like it's data
-  wspace.var("effGlobs")->setConstant(); // like it's data
-  wspace.var("sigma")->setConstant();
-  wspace.var("sigmaeff")->setConstant(); // added by kyle. 
-  // If sigmaeff not fixed, treats it as a parameter of fit. as sigma->0 gaussian diverges
+  wspace.factory("Gaussian::theoryconstraint(theoryGlobs[0,100], xsec_sm, unc_xsec_sm[0,100])");
+  wspace.factory(   "Gaussian::effconstraint(effGlobs[0,5]     , eff    , unc_eff[0,1.])");
+  wspace.factory(  "Gaussian::lumiconstraint(lumiGlobs[0,5]    , lumi   , unc_lumi[0,1.])");
+  wspace.var("theoryGlobs")->setVal(v_xsec_sm);
+  wspace.var("effGlobs"   )->setVal(1.0);
+  wspace.var("lumiGlobs"  )->setVal(1.0);
+  wspace.var("unc_xsec_sm")->setVal(v_unc_xsec_sm);
+  wspace.var("unc_eff"    )->setVal(v_unc_eff);
+  wspace.var("unc_lumi"   )->setVal(v_unc_lumi);
+  wspace.var("theoryGlobs")->setConstant(); // like it's data
+  wspace.var("effGlobs"   )->setConstant(); // like it's data
+  wspace.var("lumiGlobs"  )->setConstant(); // like it's data
 
-  wspace.factory("PROD::jointModelb(jointModel, smconstraint)");
-  wspace.factory("PROD::jointModelc(jointModelb, effconstraint)");
-  wspace.factory("PROD::jointModeld(jointModel, smconstraint, effconstraint)");
+  // If unc_* not fixed, treats it as a parameter of fit. as unc->0 gaussian diverges
+  wspace.var("unc_xsec_sm")->setConstant();
+  wspace.var("unc_eff"    )->setConstant(); // added by kyle. 
+  wspace.var("unc_lumi"   )->setConstant(); // copied by danielw
+
+  wspace.factory("PROD::jointModeld(jointModel, theoryconstraint, effconstraint,lumiconstraint)");
   RooAbsPdf *pdfc = wspace.pdf("jointModeld");
 
   pdfc->graphVizTree("debug.dot");
@@ -193,7 +218,7 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_nsig, float v_nsm, float
   x_mgg->setBins(20);
 
   RooDataSet *data = pdfc->generate( *x_mgg, RooFit::ExpectedData() ); // asimov dataset
-//  RooDataSet *data = pdfc->generate( *x_mgg)); // random data set
+
   data->SetName("data");
   data->Print();
   wspace.import(*data);
@@ -204,7 +229,7 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_nsig, float v_nsm, float
   data->plotOn(plot1);
 
   // fit to the model
-  RooArgSet cas(nsm,eff);
+  RooArgSet cas(xsec_sm,eff,lumi);
   RooFitResult *r = pdfc->fitTo(*data,RooFit::Constrain(cas),RooFit::Save(true));
   r->Print();
 
@@ -220,59 +245,54 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_nsig, float v_nsm, float
 
 
   TCanvas* c1 = new TCanvas("c1","",400,400);
-  RooPlot *frame = wspace.var("nsig")->frame();
-//  nllJoint = pdfc->createNLL(*data, RooFit::Constrain(nsm)); // slice with fixed nsm
-//  nllJoint = pdfc->createNLL(*data, RooFit::Constrain(*wspace.var("nsm"))); // slice with fixed nsm
-  RooAbsReal *nllJoint = pdfc->createNLL(*data, RooFit::Constrained()); // slice with fixed nsm
-  RooAbsReal *profileJoint = nllJoint->createProfile(*wspace.var("nsig"));
+  RooPlot *frame = wspace.var("xsec_bsm")->frame();
+  RooAbsReal *nllJoint = pdfc->createNLL(*data, RooFit::Constrained()); // slice with fixed xsec_bsm
+  RooAbsReal *profileJoint = nllJoint->createProfile(*wspace.var("xsec_bsm"));
   nllJoint->plotOn(frame, RooFit::LineColor(kRed), RooFit::ShiftToZero());
   profileJoint->plotOn(frame);
   frame->Draw();
 
- wspace.var("nsm")->setConstant(true);
- wspace.var("eff")->setConstant(true);
-  wspace.var("nsm")->setVal(v_nsm);
-  wspace.var("eff")->setVal(1.0);
-  TH1* nllHist = profileJoint->createHistogram("nsig",100);
+  wspace.var("xsec_bsm")->setConstant(true);
+  wspace.var("eff"     )->setConstant(true);
+  wspace.var("lumi"    )->setConstant(true);
+  wspace.var("xsec_sm")->setVal(v_xsec_sm);
+  wspace.var("eff"    )->setVal(1.0);
+  wspace.var("lumi"   )->setVal(1.0);
+  TH1* nllHist = profileJoint->createHistogram("xsec_bsm",100);
   wspace.import(*nllHist,"profLLeff");
-  wspace.var("nsm")->setConstant(false);
-  wspace.var("eff")->setConstant(false);
-
-  /*
-  wspace.defineSet("two","nsig,nsm");
-  RooAbsReal* profileContour = nllJoint->createProfile(*wspace.set("two"));
-  RooRealVar* pnsig = wspace.var("nsig");
-
-    pnsig->setMax(pnsig->getVal()+2*pnsig->getError());
-  //  pnsig->setMin(pnsig->getVal()-2*pnsig->getErrorLo());
-  RooRealVar* pnsm = wspace.var("nsm");
-  pnsm->setMax(pnsm->getVal()+2*pnsm->getError());
-  if(pnsm->getVal()-2*pnsm->getError() >0)
-    pnsm->setMin(pnsm->getVal()-2*pnsm->getError());
-  wspace.set("two")->Print("v");
-
-
-  TH1* hist = profileContour->createHistogram("nsig,nsm", 30,30);
-//  hist->SetMaximum(10.);
-  hist->SetMinimum(0.);
-  hist->Draw("colz");
-  wspace.set("two")->Print("v");
-  */
+  wspace.var("xsec_sm")->setConstant(false);
+  wspace.var("eff"    )->setConstant(false);
+  wspace.var("lumi"   )->setConstant(false);
 
   RooStats::ModelConfig mc("ModelConfig",&wspace);
   //  mc.SetPdf(*pdf);
   mc.SetPdf(*pdfc);
-  mc.SetParametersOfInterest(*wspace.var("nsig"));
+  //  mc.SetParametersOfInterest(*wspace.var("nsig"));
+  mc.SetParametersOfInterest(*wspace.var("xsec_bsm"));
   mc.SetObservables(*wspace.var("mgg"));
-  wspace.defineSet("nuisParams","nbg,eff,nsm");
+  wspace.defineSet("nuisParams","nbg,eff,lumi,xsec_sm");
   
   mc.SetNuisanceParameters(*wspace.set("nuisParams"));
   wspace.import(mc);
 
-  TString fname = Form("monoh_withsm_SRCR_bg%1.1f_bgslop%1.1f_nsig%1.1f.root",v_nbg,bg_slope,v_nsig);
+  TString fname = Form("monoh_withsm_SRCR_bg%1.1f_bgslop%1.1f_nsig%1.1f.root",v_nbg,bg_slope,v_xsec_bsm);
 
   wspace.writeToFile(fname,true);
   std::cout << " Written WS to " << fname << std::endl;
   return fname;
  
+}
+
+void limit(TString fname)
+{
+  StandardHypoTestInvDemo( fname, "wspace","ModelConfig","","data",2,3,true,50,0,20);
+}
+
+
+void limit_bands(float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, float v_unc_xsec_sm, float v_unc_eff)
+{
+
+  TString fname = fit_withsm(v_nbg,bg_slope,v_xsec_bsm,v_xsec_sm,v_unc_xsec_sm,v_unc_eff);
+  std::cout << "Reading WS from " << fname << std::endl;
+  limit(fname);
 }
