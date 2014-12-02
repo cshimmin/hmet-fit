@@ -1,6 +1,3 @@
-#include "StandardTestStatDistributionDemo.C"
-
-
 /*
 void StandardTestStatDistributionDemo(const char* infile = "",
 				      const char* workspaceName = "combined",
@@ -10,6 +7,7 @@ void StandardTestStatDistributionDemo(const char* infile = "",
 void check_asympt(char file[500])
 {
   gROOT->ProcessLine(".L RooDCB.C+");
+  gROOT->ProcessLine(".L StandardTestStatDistributionDemo.C+");
   StandardTestStatDistributionDemo(file,"wspace","ModelConfig","data");
 
 }
