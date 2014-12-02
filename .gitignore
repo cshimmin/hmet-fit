@@ -2,3 +2,5 @@
 *.swp
 *.d
 *.so
+*.pdf
+debug.dot

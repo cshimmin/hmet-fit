@@ -1,6 +1,5 @@
 #include "RooRealVar.h"
 #include "RooGaussian.h"
-#include "RooCBShape.h"
 #include "RooWorkspace.h"
 #include "RooPlot.h"
 #include "RooProdPdf.h"
@@ -18,88 +17,10 @@
 #include "TH1F.h"
 #include "TMath.h"
 #include "StandardHypoTestInvDemo.C"
-
-class DoubleCB : public RooAbsPdf {
-public:
-  ClassDef(DoubleCB, 1);
-	DoubleCB() {} ;
-	DoubleCB(const char* name, const char *title, RooAbsReal &_m,
-			RooAbsReal &_m0, RooAbsReal &_sigma,
-			RooAbsReal &_alphaHi, RooAbsReal &_nHi,
-			RooAbsReal &_alphaLo, RooAbsReal &_nLo);
-
-	DoubleCB(const DoubleCB& other, const char* name = 0);
-	virtual TObject* clone(const char* newname) const { return new DoubleCB(*this,newname); }
-
-	virtual Double_t evaluate() const;
-
-private:
-	RooRealProxy m;
-	RooRealProxy m0;
-	RooRealProxy sigma;
-	RooRealProxy alphaHi;
-	RooRealProxy nHi;
-	RooRealProxy alphaLo;
-	RooRealProxy nLo;
-};
-
-ClassImp(DoubleCB);
-
-DoubleCB::DoubleCB(const char* name, const char *title, RooAbsReal &_m,
-		RooAbsReal &_m0, RooAbsReal &_sigma,
-		RooAbsReal &_alphaHi, RooAbsReal &_nHi,
-		RooAbsReal &_alphaLo, RooAbsReal &_nLo) :
-  RooAbsPdf(name, title),
-  m("m", "Dependent", this, _m),
-  m0("m0", "M0", this, _m0),
-  sigma("sigma", "Sigma", this, _sigma),
-  alphaHi("alphaHi", "AlphaHi", this, _alphaHi),
-  nHi("nHi", "NHi", this, _nHi),
-  alphaLo("alphaLo", "AlphaLo", this, _alphaLo),
-  nLo("nLo", "NLo", this, _nLo)
-{
-}
-
-DoubleCB::DoubleCB(const DoubleCB& other, const char* name) :
-  RooAbsPdf(other, name),
-  m("m", this, other.m),
-  m0("m0", this, other.m0),
-  sigma("sigma", this, other.sigma),
-  alphaHi("alphaHi", this, other.alphaHi),
-  nHi("nHi", this, other.nHi),
-  alphaLo("alphaLo", this, other.alphaLo),
-  nLo("nLo", this, other.nLo)
-{
-}
-
-
-Double_t DoubleCB::evaluate() const {
-	Double_t t = (m-m0) / sigma;
-
-	if (t < -alphaLo) {
-		Double_t a = alphaLo/nLo;
-		Double_t b = ( 1 - a * (alphaLo + t) );
-
-		return exp(-0.5*alphaLo*alphaLo) / TMath::Power(b, nLo);
-	}
-	else if (t > alphaHi) {
-		Double_t a = alphaHi/nHi;
-		Double_t b = ( 1 - a * (alphaHi + t) );
-		
-		return exp(-0.5*alphaHi*alphaHi) / TMath::Power(b, nHi);
-	}
-	else {
-		return exp(-0.5*t*t);
-	}
-}
-
-
-//const float v_unc_lumi = 0.028; // 2.8%
-
+#include "RooDCB.h"
 
 TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, float v_unc_xsec_sm, float v_unc_eff)
 {
-
   // hard coded lumi stuff
   double v_lumi = 20.3;
   double v_unc_lumi = 0.028;//*v_lumi;
@@ -107,19 +28,6 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   /////  SIGNAL REGION
   // the measured mass
   RooRealVar mgg("mgg","mgg",125,105,160);
-
-  // signal model params
-  RooRealVar mh("mh","mh",125,125,125);
-  RooRealVar mbh("mbh","mbh",125,125,125);
-  //RooRealVar sh("sh","sh",5,5,5);
-  RooRealVar sh("sh","sh",1.39,1.39,1.39);
-  RooRealVar alphaCB("alphaCB","alphaCB",1.58,1.58,1.58);
-  RooRealVar nCB("nCB", "nCB", 18, 18, 18);
-  mh.setConstant(true);
-  mbh.setConstant(true);
-  sh.setConstant(true);
-  alphaCB.setConstant(true);
-  nCB.setConstant(true);
 
   RooRealVar xsec_bsm("xsec_bsm","xsec_bsm",0,0,5);
   RooRealVar xsec_sm("xsec_sm","xsec_sm",0,0,100);
@@ -134,35 +42,29 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   RooRealVar bgc("bgc","bgc",bg_slope,2*bg_slope,-2*bg_slope);
   //  bgc.setConstant(true);
   
-  RooRealVar alphaHi("alphaHi", "alphaHi", 1.81, 1.81, 1.81);
-  RooRealVar nHi("nHi", "nHi", 13.5, 13.5, 13.5);
-  RooRealVar alphaLo("alphaLo", "alphaLo", 1.34, 1.34, 1.34);
-  RooRealVar nLo("nLo", "nLo", 23.4, 23.4, 23.4);
 
+  // signal shape parameters
+  RooRealVar mh("mh", "mh", 125);
+  RooRealVar mbh("mbh", "mbh", 125);
+  RooRealVar sigma_h("sigma_h", "sigma_h", 1.354);
+  RooRealVar alphaHi("alphaHi", "alphaHi", 1.736);
+  RooRealVar nHi("nHi", "nHi", 156.3);
+  RooRealVar alphaLo("alphaLo", "alphaLo", 1.344);
+  RooRealVar nLo("nLo", "nLo", 20.06);
+
+  mh.setConstant(true);
+  mbh.setConstant(true);
+  sigma_h.setConstant(true);
   alphaHi.setConstant(true);
   nHi.setConstant(true);
   alphaLo.setConstant(true);
   nLo.setConstant(true);
   
   // signal PDF
-  //RooGaussian G("G","G",mgg,mbh,sh);
-  RooCBShape G("G", "G", mgg, mbh, sh, alphaCB, nCB);
-
-  /*
-    std::cout << "initializing doubleCB..." << std::endl;
-  DoubleCB G("G", "G", mgg, mbh, sh, alphaHi, nHi, alphaLo, nLo);
-  std::cout << "done!." << std::endl;
-  std::cout << "val = " << G.evaluate() << std::endl;
-  */
+  RooDCB G("G", "G", mgg, mbh, sigma_h, alphaHi, nHi, alphaLo, nLo);
 
   // SM PDF
-  //RooGaussian S("S","S",mgg,mh,sh);
-  RooCBShape S("S", "S", mgg, mh, sh, alphaCB, nCB);
-  /*
-  std::cout << "initializing doubleCB(2)..." << std::endl;
-  DoubleCB S("S", "S", mgg, mh, sh, alphaHi, nHi, alphaLo, nLo);
-  std::cout << "done!." << std::endl;
-  */
+  RooDCB S("S", "S", mgg, mh, sigma_h, alphaHi, nHi, alphaLo, nLo);
 
   // bg PDF
   RooExponential E("E","E",mgg,bgc);
