@@ -9,6 +9,7 @@ void StandardTestStatDistributionDemo(const char* infile = "",
 
 void check_asympt(char file[500])
 {
+  gROOT->ProcessLine(".L RooDCB.C+");
   StandardTestStatDistributionDemo(file,"wspace","ModelConfig","data");
 
 }
