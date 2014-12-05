@@ -26,16 +26,46 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   double v_unc_lumi = 0.028;//*v_lumi;
 
   // peak location /width uncertainties
+  double v_unc_mh = 0.003;
+  double v_unc_sh = 0.11;
+
+  // signal shape params
+  
+  // SM higgs 
+  //  expected limit (median) 0.262023  
   double v_mh = 125.0;
-  double v_unc_mh = 0.01;
-  double v_unc_sh = 0.15;
   double v_sh = 1.354;
+  double v_alphaHi = 1.736;
+  double v_nHi = 156.3;
+  double v_alphaLo = 1.344;
+  double v_nLo = 20.06;
+  
+  // BSM average
+  //  expected limit (median) 0.260314
+  /*
+  double v_mh = 125.0;
+  double v_sh = 1.14;
+  double v_alphaHi = 1.53;
+  double v_nHi = 152.95;
+  double v_alphaLo = 1.32;
+  double v_nLo = 45.48;
+
+
+  // BSM average for simp models and low DM mass
+  //  expected limit (median) 0.264728
+  double v_mh = 125.0;
+  double v_sh = 1.40;
+  double v_alphaHi = 1.50;
+  double v_nHi = 152.63;
+  double v_alphaLo = 1.35;
+  double v_nLo = 32.76;
+  */
 
   /////  SIGNAL REGION
   // the measured mass
   RooRealVar mgg("mgg","mgg",v_mh,105,160);
 
-  RooRealVar xsec_bsm("xsec_bsm","xsec_bsm",0,0,5);
+  RooRealVar xsec_bsm("xsec_bsm","xsec_bsm",0,0,1);
   RooRealVar xsec_sm("xsec_sm","xsec_sm",0,0,100);
 
   RooRealVar eff("eff","eff",1,0.5,1.5);
@@ -54,15 +84,13 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
 
   // signal shape parameters
   RooRealVar mh("mh", "mh", v_mh,120,130);
-  RooRealVar mbh("mbh", "mbh", v_mh);
   RooRealVar sigma_h("sigma_h", "sigma_h", v_sh,v_sh*(1.0-3*v_unc_sh),v_sh*(1.0+3*v_unc_sh));
-  RooRealVar alphaHi("alphaHi", "alphaHi", 1.736);
-  RooRealVar nHi("nHi", "nHi", 156.3);
-  RooRealVar alphaLo("alphaLo", "alphaLo", 1.344);
-  RooRealVar nLo("nLo", "nLo", 20.06);
+  RooRealVar alphaHi("alphaHi", "alphaHi", v_alphaHi);
+  RooRealVar nHi("nHi", "nHi", v_nHi);
+  RooRealVar alphaLo("alphaLo", "alphaLo", v_alphaLo);
+  RooRealVar nLo("nLo", "nLo", v_nLo);
 
   //  mh.setConstant(true);  // no longer true, since this is now a NP
-  mbh.setConstant(true);
   //  sigma_h.setConstant(true);// no longer true, since this is now a NP
   alphaHi.setConstant(true);
   nHi.setConstant(true);
@@ -70,13 +98,14 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   nLo.setConstant(true);
   
   // signal PDF
-  RooDCB G("G", "G", mgg, mbh, sigma_h, alphaHi, nHi, alphaLo, nLo);
+  RooDCB G("G", "G", mgg, mh, sigma_h, alphaHi, nHi, alphaLo, nLo);
 
   // SM PDF
   RooDCB S("S", "S", mgg, mh, sigma_h, alphaHi, nHi, alphaLo, nLo);
 
   // bg PDF
-  RooExponential E("E","E",mgg,bgc);
+  RooExponential E("E","E",mgg,bgc);  // nominal model
+  //RooUniform E("E","E",mgg);    // alternate model 
   
   RooWorkspace wspace("wspace");
 
@@ -222,7 +251,7 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
 
 void limit(TString fname)
 {
-  StandardHypoTestInvDemo( fname, "wspace","ModelConfig","","data",2,3,true,50,0,20);
+  StandardHypoTestInvDemo( fname, "wspace","ModelConfig","","data",2,3,true,50,0,100);
 }
 
 
@@ -237,3 +266,23 @@ void limit_bands(float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, 
 void test(){
   limit_bands(11.67,-1.0/60.176,0,1.13/20.3,0.07,0.05);
 }
+
+/*
+ Exponential:
+Expected upper limits, using the B (alternate) model : 
+ expected limit (median) 0.262295
+ expected limit (-1 sig) 0.176799
+ expected limit (+1 sig) 0.401923
+ expected limit (-2 sig) 0.125894
+ expected limit (+2 sig) 0.604977
+
+ Uniform:
+Expected upper limits, using the B (alternate) model : 
+ expected limit (median) 0.258491
+ expected limit (-1 sig) 0.174101
+ expected limit (+1 sig) 0.395969
+ expected limit (-2 sig) 0.123474
+ expected limit (+2 sig) 0.596594
+
+
+*/
