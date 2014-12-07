@@ -20,13 +20,13 @@
 #include "RooDCB.h"
 
 // TODO: need to ask CO where he got this higher-precision lumi
-#define TOTAL_LUMI 20.2769
+#define LUMI 20.2769
 #define FRAC_LUMI_UNC 0.028
 
 TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, float in_unc_theory, float in_unc_eff)
 {
   // hard coded lumi stuff
-  double v_lumi = TOTAL_LUMI;
+  double v_lumi = LUMI;
   double v_unc_lumi = FRAC_LUMI_UNC*v_lumi; //CHECK, make these be absolute uncert, not rel
 
   double v_eff = 1.; // for symmetry
@@ -309,7 +309,7 @@ void limit_bands(float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, 
 }
 
 void test(){
-  limit_bands(11.67,-1.0/60.176,0,1.13/TOTAL_LUMI,0.07,0.05);
+  limit_bands(11.67,-1.0/60.176,0,1.069/LUMI,0.07,0.05);
 }
 
 /*
