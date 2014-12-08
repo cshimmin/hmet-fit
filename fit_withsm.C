@@ -16,12 +16,19 @@
 #include "TCanvas.h"
 #include "TH1F.h"
 #include "TMath.h"
+#include "TChain.h"
+
 #include "StandardHypoTestInvDemo.C"
 #include "RooDCB.h"
 
 // TODO: need to ask CO where he got this higher-precision lumi
 #define LUMI 20.2769
 #define FRAC_LUMI_UNC 0.028
+
+// set to true if you want to use real (unblinded) data
+// from data_ntuple.root
+#define USE_DATA false
+#define DATA_FILE "data_ntuple.root"
 
 TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, float in_unc_theory, float in_unc_eff)
 {
@@ -218,7 +225,19 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   RooRealVar *x_mgg = wspace->var("mgg");
   x_mgg->setBins(20);
 
-  RooDataSet *data = pdfc->generate( *x_mgg, RooFit::ExpectedData() ); // asimov dataset
+  RooDataSet *data;
+  RooRealVar diphoton_pt("diphoton_pt", "diphoton_pt", 0, 1000);
+  RooRealVar met_et("met_et", "met_et", 0, 1000);
+  if (USE_DATA) {
+    std::cout << "Using REAL DATA!" << std::endl;
+    TChain *data_ntuple = new TChain("hmet");
+    data_ntuple->Add(DATA_FILE);
+
+    data = new RooDataSet("data", "data", RooArgSet(mgg, diphoton_pt, met_et), RooFit::Import(*data_ntuple), 
+		    RooFit::Cut("mgg>105 && mgg<160 && met_et>90 && diphoton_pt>90"));
+  } else {
+    RooDataSet *data = pdfc->generate( *x_mgg, RooFit::ExpectedData() ); // asimov dataset
+  }
 
   data->SetName("data");
   data->Print();
@@ -241,7 +260,7 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   pdfc->plotOn(plot1);
   pdfc->paramOn(plot1);
 
-  TCanvas *tc = new TCanvas("tc","",400,400);
+  TCanvas *tc = new TCanvas("tc","",700,500);
   plot1->Draw();
 
 
