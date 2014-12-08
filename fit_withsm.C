@@ -27,8 +27,12 @@
 
 // set to true if you want to use real (unblinded) data
 // from data_ntuple.root
-#define USE_DATA false
+#define USE_DATA true
 #define DATA_FILE "data_ntuple.root"
+
+// set to true if you want to set fiducial (rather than visible)
+// cross-section limits.
+#define DO_FIDUCIAL_LIMIT false
 
 TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, float in_unc_theory, float in_unc_eff)
 {
@@ -93,8 +97,15 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   wspace->import(xsec_sm);
 
   // POI
-  RooRealVar xsec_bsm("xsec_bsm","xsec_bsm",0,0,1);
+  RooRealVar xsec_bsm("xsec_bsm","xsec_bsm",0,0,0.8);
   wspace->import(xsec_bsm);
+
+  // hack to build-in the reco efficiency for the fiducial limits
+  // so don't have to divide it out later. otherwise the
+  // CLs plot doesn't really show the fiducial xs.
+  RooRealVar reco("reco", "reco", 0.63);
+  reco.setConstant(true);
+  wspace->import(reco);
 
   // CONSTRAINTS
   // make consistent blocks for each constrained component.
@@ -197,9 +208,19 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   wspace->import(E);
 
   // number of signal events
-  wspace->factory("prod::nsig(lumi,eff,xsec_bsm)");  
+  if (DO_FIDUCIAL_LIMIT) {
+	  // hack to include correct efficiency for fiducial limit /CS
+	  wspace->factory("prod::nsig(lumi,eff,xsec_bsm,reco)");  
+  } else {
+	  // do visible XS limits.
+	  // NB: there is no "eff" term for the visible XS because! /CS
+	  wspace->factory("prod::nsig(lumi, xsec_bsm)");
+  }
 
   // number of SM higgs events
+  //
+  // NB: only the SM higgs has a theory uncertainty for now; eventually
+  // we will have to handle correlated theory uncertainties once we specify a certain model. /CS
   wspace->factory("prod::nsm(lumi,eff,theory,xsec_sm)");
 
   // the joint model: non-peaking BG + peaking BG (called "SM") and peaking signal
