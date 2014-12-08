@@ -16,17 +16,35 @@
 #include "TCanvas.h"
 #include "TH1F.h"
 #include "TMath.h"
+#include "TChain.h"
+
 #include "StandardHypoTestInvDemo.C"
 #include "RooDCB.h"
 
-TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, float v_unc_xsec_sm, float in_unc_eff)
+// TODO: need to ask CO where he got this higher-precision lumi
+#define LUMI 20.2769
+#define FRAC_LUMI_UNC 0.028
+
+// set to true if you want to use real (unblinded) data
+// from data_ntuple.root
+#define USE_DATA true
+#define DATA_FILE "data_ntuple.root"
+
+// set to true if you want to set fiducial (rather than visible)
+// cross-section limits.
+#define DO_FIDUCIAL_LIMIT false
+
+TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, float in_unc_theory, float in_unc_eff)
 {
   // hard coded lumi stuff
-  double v_lumi = 20.3;
-  double v_unc_lumi = 0.028*v_lumi; //CHECK, make these be absolute uncert, not rel
+  double v_lumi = LUMI;
+  double v_unc_lumi = FRAC_LUMI_UNC*v_lumi; //CHECK, make these be absolute uncert, not rel
 
   double v_eff = 1.; // for symmetry
-  double v_unc_eff = 1.*in_unc_eff; // for symmetry
+  double v_unc_eff = in_unc_eff*v_eff; // for symmetry
+
+  double v_theory = 1.;
+  double v_unc_theory = in_unc_theory*v_theory;
 
 
   // peak location /width uncertainties
@@ -73,9 +91,21 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   // the measured mass
   RooRealVar mgg("mgg","mgg",v_mh,105,160);
 
+  // the predicted SM background
+  RooRealVar xsec_sm("xsec_sm", "xsec_sm", v_xsec_sm);
+  xsec_sm.setConstant(true);
+  wspace->import(xsec_sm);
+
   // POI
-  RooRealVar xsec_bsm("xsec_bsm","xsec_bsm",0,0,1);
+  RooRealVar xsec_bsm("xsec_bsm","xsec_bsm",0,0,0.8);
   wspace->import(xsec_bsm);
+
+  // hack to build-in the reco efficiency for the fiducial limits
+  // so don't have to divide it out later. otherwise the
+  // CLs plot doesn't really show the fiducial xs.
+  RooRealVar reco("reco", "reco", 0.63);
+  reco.setConstant(true);
+  wspace->import(reco);
 
   // CONSTRAINTS
   // make consistent blocks for each constrained component.
@@ -84,16 +114,6 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   // would be cleaner to remove RooRealVar, import and just use factory, but do that later.
   // globs shoudl be constant like data
   // the "sigma" of the Gaussian should be constant
-
-  RooRealVar xsec_sm("xsec_sm","xsec_sm",v_xsec_sm,v_xsec_sm-3*v_unc_xsec_sm,v_xsec_sm+3*v_unc_xsec_sm);
-  RooRealVar xsec_smGlobs("xsec_smGlobs","xsec_smGlobs",v_xsec_sm,v_xsec_sm-3*v_unc_xsec_sm,v_xsec_sm+3*v_unc_xsec_sm);
-  RooRealVar unc_xsec_sm("unc_xsec_sm","unc_xsec_sm",v_unc_xsec_sm,0,3*v_unc_xsec_sm);
-  xsec_smGlobs.setConstant();
-  unc_xsec_sm.setConstant();
-  wspace->import(xsec_sm);
-  wspace->import(xsec_smGlobs);
-  wspace->import(unc_xsec_sm);
-  wspace->factory("Gaussian::theoryconstraint(xsec_smGlobs, xsec_sm, unc_xsec_sm)");
 
 
   RooRealVar lumi("lumi","lumi",v_lumi,v_lumi-3*v_unc_lumi, v_lumi+3*v_unc_lumi); //KC
@@ -117,6 +137,15 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   wspace->import(unc_eff);
   wspace->factory("Gaussian::effconstraint(effGlobs     , eff    , unc_eff)");
 
+  RooRealVar theory("theory","theory",v_theory,v_theory-3*v_unc_theory,v_theory+3*v_unc_theory);
+  RooRealVar theoryGlobs("theoryGlobs","theoryGlobs",v_theory,v_theory-3*v_unc_theory,v_theory+3*v_unc_theory);
+  RooRealVar unc_theory("unc_theory","unc_theory",v_unc_theory,0,3*v_unc_theory);
+  theoryGlobs.setConstant();
+  unc_theory.setConstant();
+  wspace->import(theory);
+  wspace->import(theoryGlobs);
+  wspace->import(unc_theory);
+  wspace->factory("Gaussian::theoryconstraint(theoryGlobs, theory, unc_theory)");
 
   RooRealVar mh("mh", "mh", v_mh,120,130);
   RooRealVar mhGlobs("mhGlobs","mhGlobs",v_mh,v_mh-3.*v_unc_mh,v_mh+3.*v_unc_mh);
@@ -126,7 +155,7 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   wspace->import(mh);
   wspace->import(mhGlobs);
   wspace->import(unc_mh);
-  wspace->factory("Gaussian::peakconstraint(mhGlobs, mh     , unc_mh)");
+  wspace->factory("Gaussian::massconstraint(mhGlobs, mh     , unc_mh)");
 
   
   RooRealVar sigma_h("sigma_h", "sigma_h", v_sh,v_sh-3*v_unc_sh,v_sh+3*v_unc_sh); // could change name to be consistent
@@ -178,25 +207,35 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   wspace->import(E);
 
   // number of signal events
-  wspace->factory("prod::nsig(lumi,eff,xsec_bsm)");  
+  if (DO_FIDUCIAL_LIMIT) {
+	  // hack to include correct efficiency for fiducial limit /CS
+	  wspace->factory("prod::nsig(lumi,eff,xsec_bsm,reco)");  
+  } else {
+	  // do visible XS limits.
+	  // NB: there is no "eff" term for the visible XS because! /CS
+	  wspace->factory("prod::nsig(lumi, xsec_bsm)");
+  }
 
   // number of SM higgs events
-  wspace->factory("prod::nsm(lumi,eff,xsec_sm)");
-
+  //
+  // NB: only the SM higgs has a theory uncertainty for now; eventually
+  // we will have to handle correlated theory uncertainties once we specify a certain model. /CS
+  wspace->factory("prod::nsm(lumi,eff,theory,xsec_sm)");
 
   // the joint model: non-peaking BG + peaking BG (called "SM") and peaking signal
   wspace->factory("SUM:jointModel(nsig*G,nsm*S,nbg*E)");
   wspace->var("xsec_bsm")->setVal(v_xsec_bsm);
   wspace->var("nbg")->setVal(v_nbg);
-  wspace->var("xsec_sm")->setVal(v_xsec_sm);
-  wspace->var("eff")->setVal(1.0);
   wspace->var("lumi")->setVal(v_lumi);
+  wspace->var("eff")->setVal(v_eff);
+  wspace->var("theory")->setVal(v_theory);
+  wspace->var("xsec_sm")->setVal(v_xsec_sm);
 
   // unconstrained PDF
   RooAbsPdf *pdf = wspace->pdf("jointModel");
 
   // add constraints to main measurement
-  wspace->factory("PROD::jointModeld(jointModel, theoryconstraint, widthconstraint, peakconstraint, effconstraint,lumiconstraint)");
+  wspace->factory("PROD::jointModeld(jointModel, massconstraint, widthconstraint, effconstraint, theoryconstraint, lumiconstraint)");
   RooAbsPdf *pdfc = wspace->pdf("jointModeld");
 
   // for debugging structure
@@ -206,7 +245,19 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   RooRealVar *x_mgg = wspace->var("mgg");
   x_mgg->setBins(20);
 
-  RooDataSet *data = pdfc->generate( *x_mgg, RooFit::ExpectedData() ); // asimov dataset
+  RooDataSet *data;
+  RooRealVar diphoton_pt("diphoton_pt", "diphoton_pt", 0, 1000);
+  RooRealVar met_et("met_et", "met_et", 0, 1000);
+  if (USE_DATA) {
+    std::cout << "Using REAL DATA!" << std::endl;
+    TChain *data_ntuple = new TChain("hmet");
+    data_ntuple->Add(DATA_FILE);
+
+    data = new RooDataSet("data", "data", RooArgSet(mgg, diphoton_pt, met_et), RooFit::Import(*data_ntuple), 
+		    RooFit::Cut("mgg>105 && mgg<160 && met_et>90 && diphoton_pt>90"));
+  } else {
+    RooDataSet *data = pdfc->generate( *x_mgg, RooFit::ExpectedData() ); // asimov dataset
+  }
 
   data->SetName("data");
   data->Print();
@@ -218,7 +269,7 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   data->plotOn(plot1);
 
   // fit to the model
-  RooArgSet cas(xsec_sm,eff,mh,sigma_h,lumi);
+  RooArgSet cas(mh,sigma_h,eff,theory,lumi);
   RooFitResult *r = pdfc->fitTo(*data,RooFit::Constrain(cas),RooFit::Save(true));
   r->Print();
 
@@ -229,7 +280,7 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   pdfc->plotOn(plot1);
   pdfc->paramOn(plot1);
 
-  TCanvas *tc = new TCanvas("tc","",400,400);
+  TCanvas *tc = new TCanvas("tc","",700,500);
   plot1->Draw();
 
 
@@ -266,7 +317,7 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   //  mc.SetParametersOfInterest(*wspace->var("nsig"));
   mc.SetParametersOfInterest(*wspace->var("xsec_bsm"));
   mc.SetObservables(*wspace->var("mgg"));
-  wspace->defineSet("nuisParams","nbg,eff,mh,sigma_h,lumi,xsec_sm");
+  wspace->defineSet("nuisParams","nbg,mh,sigma_h,lumi,eff,theory");
   
   mc.SetNuisanceParameters(*wspace->set("nuisParams"));
   wspace->import(mc);
@@ -297,7 +348,7 @@ void limit_bands(float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, 
 }
 
 void test(){
-  limit_bands(11.67,-1.0/60.176,0,1.13/20.3,0.07,0.05);
+  limit_bands(11.67,-1.0/60.176,0,1.069/LUMI,0.07,0.05);
 }
 
 /*
