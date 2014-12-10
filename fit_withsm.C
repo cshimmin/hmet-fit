@@ -268,6 +268,13 @@ TString fit_withsm( float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_s
   RooPlot *plot1 = x_mgg->frame();
   data->plotOn(plot1);
 
+  // write the wspace before fitting (for the NP plot)
+  
+
+  wspace->importClassCode(); // will embed RooDCB code
+  wspace->writeToFile("monoh_ws_prefit.root",true);
+
+
   // fit to the model
   RooArgSet cas(mh,sigma_h,eff,theory,lumi);
   RooFitResult *r = pdfc->fitTo(*data,RooFit::Constrain(cas),RooFit::Save(true));
@@ -347,8 +354,11 @@ void limit_bands(float v_nbg,float bg_slope, float v_xsec_bsm, float v_xsec_sm, 
   limit(fname);
 }
 
+#define LUMI 20.2769
+
 void test(){
-  limit_bands(11.67,-1.0/60.176,0,1.069/LUMI,0.07,0.05);
+	limit_bands(11.67,-1.0/60.176,0,1.069/LUMI,0.042,0.029);
+
 }
 
 /*
