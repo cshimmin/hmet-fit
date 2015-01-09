@@ -179,6 +179,7 @@ void paper_fit_plot()
 
   // add the data
   data->plotOn(frame,RooFit::Binning(55),RooFit::Name("xdata"),RooFit::DataError(RooAbsData::Poisson));
+  //data->plotOn(frame,RooFit::Binning(11),RooFit::Name("xdata"),RooFit::DataError(RooAbsData::Poisson));
 
 
   ///  PDFs
@@ -205,8 +206,8 @@ void paper_fit_plot()
   // descriptive text
   vector<TString> pavetext11;
   pavetext11.push_back("#bf{#it{ATLAS Internal}}");
-  pavetext11.push_back("#sqrt{#it{s}} = 8 TeV #scale[0.6]{#int}Ldt = 20.3 fb^{-1}");
-  pavetext11.push_back("#it{H + #slash{E}_{T}} , #it{H #rightarrow #gamma#gamma}, #it{m}_{#it{H}} = 125.4 GeV");
+  pavetext11.push_back("#sqrt{#it{s}} = 8 TeV #scale[0.6]{#int}#it{L} dt = 20.3 fb^{-1}");
+  pavetext11.push_back("#it{H + E}_{T}^{miss} , #it{H #rightarrow #gamma#gamma}, #it{m}_{#it{H}} = 125.4 GeV");
 
   TPaveText* text11=CreatePaveText(x2-0.47,y2-0.25,x2-0.05,y2-0.05,pavetext11,0.045);
   text11->Draw();
