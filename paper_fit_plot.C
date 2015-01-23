@@ -261,7 +261,7 @@ void plot_pll(TString fname="monoh_withsm_SRCR_bg11.7_bgslop-0.0_nsig0.0.root")
   wspace->var("xsec_bsm")->setVal(0);
   double nll0 = 2*nllJoint->getVal();
   cout << Form("nllmin = %f, nll0 = %f, Z=%f", nllmin, nll0, sqrt(nll0-nllmin)) << endl;
-  //nllJoint->plotOn(frame, RooFit::LineColor(kGreen), RooFit::ShiftToZero(), RooFit::Name("nll_statonly")); // no error
+  nllJoint->plotOn(frame, RooFit::LineColor(kGreen), RooFit::LineStyle(kDotted), RooFit::ShiftToZero(), RooFit::Name("nll_statonly")); // no error
   profileJoint->plotOn(frame,RooFit::Name("pll") );
   wspace->var("xsec_sm")->Print();
   wspace->var("theory")->Print();
@@ -282,8 +282,8 @@ void plot_pll(TString fname="monoh_withsm_SRCR_bg11.7_bgslop-0.0_nsig0.0.root")
   GetX1Y1X2Y2(tc,x1,y1,x2,y2);
   TLegend *legend_sr=FastLegend(x2-0.75,y2-0.3,x2-0.25,y2-0.5,0.045);
   legend_sr->AddEntry(frame->findObject("pll"),"with #sigma_{SM} uncertainty","L");
-  legend_sr->AddEntry(frame->findObject("pll_smfixed"),"with sigma_{SM} constant","L");
-  //legend_sr->AddEntry(frame->findObject("nll_statonly"),"no systematics","L");
+  legend_sr->AddEntry(frame->findObject("pll_smfixed"),"with #sigma_{SM} constant","L");
+  legend_sr->AddEntry(frame->findObject("nll_statonly"),"no systematics","L");
   frame->Draw();
   legend_sr->Draw("SAME");
 
