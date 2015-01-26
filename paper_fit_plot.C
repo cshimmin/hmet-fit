@@ -252,7 +252,16 @@ void plot_pll(TString fname="monoh_withsm_SRCR_bg11.7_bgslop-0.0_nsig0.0.root")
   RooAbsData* data = wspace->data("data");
   RooAbsReal *nllJoint = pdfc->createNLL(*data, RooFit::Constrained()); // slice with fixed xsec_bsm
   RooAbsReal *profileJoint = nllJoint->createProfile(*wspace->var("xsec_bsm"));
-  //nllJoint->plotOn(frame, RooFit::LineColor(kRed), RooFit::ShiftToZero());
+
+  wspace->allVars().Print("v");
+  pdfc->fitTo(*data);
+  wspace->allVars().Print("v");
+  wspace->var("xsec_bsm")->Print();
+  double nllmin = 2*nllJoint->getVal();
+  wspace->var("xsec_bsm")->setVal(0);
+  double nll0 = 2*nllJoint->getVal();
+  cout << Form("nllmin = %f, nll0 = %f, Z=%f", nllmin, nll0, sqrt(nll0-nllmin)) << endl;
+  nllJoint->plotOn(frame, RooFit::LineColor(kGreen), RooFit::LineStyle(kDotted), RooFit::ShiftToZero(), RooFit::Name("nll_statonly")); // no error
   profileJoint->plotOn(frame,RooFit::Name("pll") );
   wspace->var("xsec_sm")->Print();
   wspace->var("theory")->Print();
@@ -273,7 +282,8 @@ void plot_pll(TString fname="monoh_withsm_SRCR_bg11.7_bgslop-0.0_nsig0.0.root")
   GetX1Y1X2Y2(tc,x1,y1,x2,y2);
   TLegend *legend_sr=FastLegend(x2-0.75,y2-0.3,x2-0.25,y2-0.5,0.045);
   legend_sr->AddEntry(frame->findObject("pll"),"with #sigma_{SM} uncertainty","L");
-  legend_sr->AddEntry(frame->findObject("pll_smfixed"),"#sigma_{SM} constant","L");
+  legend_sr->AddEntry(frame->findObject("pll_smfixed"),"with #sigma_{SM} constant","L");
+  legend_sr->AddEntry(frame->findObject("nll_statonly"),"no systematics","L");
   frame->Draw();
   legend_sr->Draw("SAME");
 
@@ -283,7 +293,7 @@ void plot_pll(TString fname="monoh_withsm_SRCR_bg11.7_bgslop-0.0_nsig0.0.root")
   vector<TString> pavetext11;
   pavetext11.push_back("#bf{#it{ATLAS Internal}}");
   pavetext11.push_back("#sqrt{#it{s}} = 8 TeV #scale[0.6]{#int}Ldt = 20.3 fb^{-1}");
-  pavetext11.push_back("#it{H}+#slash{#it{E}}_{T} , #it{H #rightarrow #gamma#gamma}, #it{m}_{#it{H}} = 125.4 GeV");
+  pavetext11.push_back("#it{H}+#it{E}_{T}^{miss} , #it{H #rightarrow #gamma#gamma}, #it{m}_{#it{H}} = 125.4 GeV");
 
   TPaveText* text11=CreatePaveText(x2-0.75,y2-0.25,x2-0.25,y2-0.05,pavetext11,0.045);
   text11->Draw();

@@ -132,7 +132,6 @@ TString fit_withsm(fitArgs args)
   // globs shoudl be constant like data
   // the "sigma" of the Gaussian should be constant
 
-  
 
   RooRealVar lumi("lumi","lumi",v_lumi,v_lumi-3*v_unc_lumi, v_lumi+3*v_unc_lumi); //KC
   RooRealVar lumiGlobs("lumiGlobs","lumiGlobs",v_lumi,v_lumi-3*v_unc_lumi, v_lumi+3*v_unc_lumi); //KC
