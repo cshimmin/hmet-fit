@@ -10,7 +10,7 @@ void test_limits() {
 
 	fitArgs args = DEFAULT_FIT_ARGS;
 
-	limit_level_t lim = VISIBLE;
+	limit_level_t lim = MODEL;
 
 	switch (lim) {
 	case VISIBLE:
@@ -18,12 +18,12 @@ void test_limits() {
 		break;
 	case FIDUCIAL:
 		args.limit_level = FIDUCIAL;
-		args.v_reco = 0.56;
+		args.v_reco = 0.61;
 		break;
 	case MODEL:
 		args.limit_level = MODEL;
 		args.in_unc_sig_theory = 0.40;
-		args.v_reco = 0.49;
+		args.v_reco = 0.355;
 		break;
 	}
 

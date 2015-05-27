@@ -27,11 +27,11 @@
 
 // set to true if you want to use real (unblinded) data
 // from data_ntuple.root
-#define USE_DATA false
+#define USE_DATA true
 #define DATA_FILE "data_ntuple.root"
 
 // number of points to scan in StandardHypoTestInvDemo
-#define N_POINTS 50
+#define N_POINTS 100
 
 // specify what level of limits are to be set
 enum limit_level_t {VISIBLE=0, FIDUCIAL, MODEL};
@@ -44,8 +44,8 @@ struct fitArgs {
 	float v_xsec_sm;
 	float in_unc_theory;
 	float in_unc_eff;
-	float in_unc_sig_theory;
-	float v_reco;
+	float in_unc_sig_theory; // theory uncertainty for signal XS
+	float v_reco; // reco-level efficiency
 	limit_level_t limit_level;
 };
 
@@ -114,7 +114,7 @@ TString fit_withsm(fitArgs args)
   wspace->import(xsec_sm);
 
   // POI
-  RooRealVar xsec_bsm("xsec_bsm","xsec_bsm",0,0,0.8);
+  RooRealVar xsec_bsm("xsec_bsm","xsec_bsm",0,0,5);
   wspace->import(xsec_bsm);
 
   // hack to build-in the reco efficiency for the fiducial limits

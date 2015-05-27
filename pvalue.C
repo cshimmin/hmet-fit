@@ -2,8 +2,8 @@
 
 #include "StandardFrequentistDiscovery.C"
 
-void pvalue()
+void pvalue(TString fname)
 {
-  StandardFrequentistDiscovery("monoh_withsm_SRCR_bg11.7_bgslop-0.0_nsig0.0.root","wspace","ModelConfig","data",10000);
-
+  gROOT->ProcessLine(".L RooDCB.C+");
+  StandardFrequentistDiscovery(fname,"wspace","ModelConfig","data",10000);
 }
